@@ -887,6 +887,86 @@ describe("@node-red/util/util", function() {
             resultJson.should.have.property("length",2)
         });
 
+        describe('encode TypedArray', function() {
+            it('encodes a top-level Float32Array as a truncated typedarray', function() {
+                var msg = {msg:new Float32Array(7500)};
+                var result = util.encodeObject(msg);
+                result.format.should.eql("typedarray[7500]");
+                var resultJson = JSON.parse(result.msg);
+                resultJson.should.have.property("__enc__",true);
+                resultJson.should.have.property("type","typedarray");
+                resultJson.should.have.property("subtype","Float32Array");
+                resultJson.should.have.property("length",7500);
+                resultJson.data.should.have.length(1000);
+                // Must not be encoded as an object with one key per index
+                Object.keys(resultJson).should.eql(["__enc__","type","subtype","data","length"]);
+            });
+            it('encodes a nested Float32Array rather than per-index keys', function() {
+                var msg = {msg:{payload:new Float32Array(7500)}};
+                var result = util.encodeObject(msg);
+                result.format.should.eql("Object");
+                var resultJson = JSON.parse(result.msg);
+                resultJson.payload.should.have.property("__enc__",true);
+                resultJson.payload.should.have.property("type","typedarray");
+                resultJson.payload.should.have.property("subtype","Float32Array");
+                resultJson.payload.should.have.property("length",7500);
+                resultJson.payload.data.should.have.length(1000);
+            });
+            it('encodes the other TypedArray types', function() {
+                var msg = {msg:{
+                    i:new Int16Array([1,-2,3]),
+                    u:new Uint8Array([4,5]),
+                    f:new Float64Array([1.25,2.5])
+                }};
+                var result = util.encodeObject(msg);
+                var resultJson = JSON.parse(result.msg);
+                resultJson.i.should.have.property("type","typedarray");
+                resultJson.i.should.have.property("subtype","Int16Array");
+                resultJson.i.data.should.eql([1,-2,3]);
+                resultJson.u.should.have.property("subtype","Uint8Array");
+                resultJson.u.data.should.eql([4,5]);
+                resultJson.f.should.have.property("subtype","Float64Array");
+                resultJson.f.data.should.eql([1.25,2.5]);
+            });
+            it('honours maxLength', function() {
+                var msg = {msg:new Int32Array(5000)};
+                var result = util.encodeObject(msg,{maxLength:100});
+                result.format.should.eql("typedarray[5000]");
+                var resultJson = JSON.parse(result.msg);
+                resultJson.should.have.property("length",5000);
+                resultJson.data.should.have.length(100);
+            });
+            it('keeps all values when shorter than maxLength', function() {
+                var msg = {msg:new Uint8Array([1,2,3])};
+                var result = util.encodeObject(msg);
+                result.format.should.eql("typedarray[3]");
+                var resultJson = JSON.parse(result.msg);
+                resultJson.data.should.eql([1,2,3]);
+            });
+            it('does not treat a Buffer as a TypedArray', function() {
+                var msg = {msg:Buffer.from([1,2,3,4])};
+                var result = util.encodeObject(msg,{maxLength:2});
+                result.format.should.eql("buffer[4]");
+                result.msg.should.eql("01");
+            });
+            it('does not mutate the source TypedArray', function() {
+                var ta = new Float32Array([1.5,2.5]);
+                util.encodeObject({msg:ta});
+                ta.should.be.an.instanceOf(Float32Array);
+                ta.should.have.length(2);
+                ta[0].should.eql(1.5);
+                ta[1].should.eql(2.5);
+            });
+            it('encodes bigint TypedArray elements using the bigint encoding', function() {
+                var msg = {msg:new BigInt64Array([1n,2n])};
+                var result = util.encodeObject(msg);
+                var resultJson = JSON.parse(result.msg);
+                resultJson.should.have.property("subtype","BigInt64Array");
+                resultJson.data[0].should.have.property("type","bigint");
+                resultJson.data[0].data.should.eql("1");
+            });
+        });
+
 
         describe('encode object', function() {
             it('object', function() {
