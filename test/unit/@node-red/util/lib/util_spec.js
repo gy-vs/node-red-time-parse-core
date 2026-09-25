@@ -887,6 +887,64 @@ describe("@node-red/util/util", function() {
             resultJson.should.have.property("length",2)
         });
 
+        describe('encode TypedArray', function() {
+            it('encodes a small TypedArray', function() {
+                var msg = {msg:Float32Array.from([1.5,2.5])};
+                var result = util.encodeObject(msg);
+                result.format.should.eql("float32array[2]");
+                var resultJson = JSON.parse(result.msg);
+                resultJson.should.have.property("__enc__",true);
+                resultJson.should.have.property("type","typedarray");
+                resultJson.should.have.property("subtype","float32array");
+                resultJson.should.have.property("data",[1.5,2.5]);
+                resultJson.should.have.property("length",2)
+            });
+            it('encodes an Int16Array', function() {
+                var msg = {msg:Int16Array.from([1,-2,3])};
+                var result = util.encodeObject(msg);
+                result.format.should.eql("int16array[3]");
+                var resultJson = JSON.parse(result.msg);
+                resultJson.should.have.property("type","typedarray");
+                resultJson.should.have.property("subtype","int16array");
+                resultJson.should.have.property("data",[1,-2,3]);
+                resultJson.should.have.property("length",3)
+            });
+            it('truncates a long TypedArray', function() {
+                var msg = {msg:new Uint8Array(1001)};
+                var result = util.encodeObject(msg);
+                result.format.should.eql("uint8array[1001]");
+                var resultJson = JSON.parse(result.msg);
+                resultJson.should.have.property("__enc__",true);
+                resultJson.should.have.property("type","typedarray");
+                resultJson.should.have.property("subtype","uint8array");
+                resultJson.data.should.have.length(1000);
+                resultJson.should.have.property("length",1001)
+            });
+            it('encodes a TypedArray nested in an object as array-like data', function() {
+                var msg = {msg:{values:new Float32Array(7500)}};
+                var result = util.encodeObject(msg);
+                result.format.should.eql("Object");
+                var resultJson = JSON.parse(result.msg);
+                resultJson.should.have.property("values");
+                resultJson.values.should.have.property("__enc__",true);
+                resultJson.values.should.have.property("type","typedarray");
+                resultJson.values.should.have.property("subtype","float32array");
+                resultJson.values.data.should.have.length(1000);
+                resultJson.values.should.have.property("length",7500)
+            });
+            it('encodes a TypedArray nested in an array', function() {
+                var msg = {msg:[new Uint8Array([1,2,3])]};
+                var result = util.encodeObject(msg);
+                result.format.should.eql("array[1]");
+                var resultJson = JSON.parse(result.msg);
+                resultJson[0].should.have.property("__enc__",true);
+                resultJson[0].should.have.property("type","typedarray");
+                resultJson[0].should.have.property("subtype","uint8array");
+                resultJson[0].should.have.property("data",[1,2,3]);
+                resultJson[0].should.have.property("length",3)
+            });
+        });
+
 
         describe('encode object', function() {
             it('object', function() {

@@ -458,6 +458,34 @@ describe('debug node', function() {
         });
     });
 
+    it('should encode a TypedArray payload as an array-like value', function(done) {
+        var flow = [{id:"n1", type:"debug" }];
+        helper.load(debugNode, flow, function() {
+            var n1 = helper.getNode("n1");
+            websocket_test(function() {
+                n1.emit("input", {payload: new Float32Array(7500)});
+            }, function(msg) {
+                var a = JSON.parse(msg);
+                a.should.eql([{
+                    topic:"debug",
+                    data:{
+                        id:"n1",
+                        msg:JSON.stringify({
+                            __enc__: true,
+                            type: "typedarray",
+                            subtype: "float32array",
+                            data: new Array(1000).fill(0),
+                            length: 7500
+                        }),
+                        property:"payload",
+                        format:"float32array[7500]",
+                        path:"global"
+                    }
+                }]);
+            }, done);
+        });
+    });
+
     it('should truncate a large array', function(done) {
         var flow = [{id:"n1", type:"debug" }];
         helper.load(debugNode, flow, function() {
